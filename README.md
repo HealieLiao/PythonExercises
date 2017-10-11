@@ -1,6 +1,5 @@
 # PythonExercises
-Colect all the exercises we have done
-
+Colect all the exercises we have done. 
 古语云：“不积跬步，无以至千里；不积小流，无以成江海。”
 
 ### 001：斐波那契数列，面试题
