@@ -16,3 +16,9 @@ abcd
 dcba
 
 '''
+# 第一种方法
+def reverse1(s):
+    return s[::-1]
+
+s = input()
+print(reverse1(s))
