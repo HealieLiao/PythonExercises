@@ -1,0 +1,142 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Sat Oct 14 13:42:28 2017
+
+@author: LXL
+降维：reliefF
+    relief算法的扩展，用于多分类。
+    摘自：http://blog.csdn.net/kryolith/article/details/40849483
+"""
+
+import numpy as np
+from random import randrange
+#from sklearn.datasets import make_blobs
+from sklearn.preprocessing import normalize
+import matplotlib.pyplot as plt
+from sklearn import datasets
+
+def distanceNorm(Norm,D_value):
+	# 指定Norm来选择范数
+    if Norm == '1':
+        counter = np.absolute(D_value);
+        counter = np.sum(counter);
+    elif Norm == '2':
+        counter = np.power(D_value,2);
+        counter = np.sum(counter);
+        counter = np.sqrt(counter);
+    elif Norm == 'Infinity':
+        counter = np.absolute(D_value);
+        counter = np.max(counter);
+    else:
+        raise Exception('We will program this later......');
+    return counter;
+
+def fit(features,labels,iter_ratio,k,norm):
+    #初始化，获取特征集的维度，构造和初始化距离矩阵、权重空间矩阵，并获取各样本的标识，即类别
+    (n_samples,n_features) = np.shape(features);
+    distance = np.zeros((n_samples,n_samples));
+    weight = np.zeros(n_features);
+    labels = map(int,labels)
+    labels = list(labels)
+    #计算各样本之间的距离
+    for index_i in range(n_samples):
+        for index_j in range(index_i+1,n_samples):
+            D_value = features[index_i] - features[index_j];
+            distance[index_i,index_j] = distanceNorm(norm,D_value);
+    distance += distance.T;
+    #统计各类的样本数及初始化异类总数，以计算概率
+    n_classc = dict();
+    for label in labels:
+        n_classc[label] = 0;
+    for label in labels:
+        n_classc[label] +=1;
+    n_miss = 0;
+
+    # 开始迭代，只使用部分样本集
+    for iter_num in range(int(iter_ratio*n_samples)):
+        #随机抽取一个样本，获取这个样本的索引和特征
+        index_i = randrange(0,n_samples,1);
+        self_features = features[index_i];
+        #构造并初始化k个最近击点和最近闪点
+        nearHit = list();
+        nearMiss = dict();
+        n_labels = list(set(labels));#先去重，再转换成列表
+        termination = np.zeros(len(n_labels));
+        #del n_labels[n_labels.index(labels[index_i])];
+        n_labels.remove(labels[index_i]);
+        for label in n_labels:
+            nearMiss[label] = list();
+        distance_sort = list();
+        #把样本到自身的距离设置成最大的值
+        distance[index_i,index_i] = np.max(distance[index_i]);
+        for index in range(n_samples):
+            distance_sort.append([distance[index_i,index],index,labels[index]]);
+            n_classc[labels[index]] +=1;
+
+        distance_sort.sort(key = lambda x:x[0]);#按距离排序
+
+        for index in range(n_samples):
+			# 寻找最近k个击点             
+            if distance_sort[index][2] == labels[index_i]:
+                if len(nearHit) < k:
+                    nearHit.append(features[distance_sort[index][1]]);
+                else:
+                    termination[distance_sort[index][2]] = 1;
+			#寻找最近k个闪点
+            elif distance_sort[index][2] != labels[index_i]:
+                n_miss +=1; #统计异类总数
+                                
+                if len(nearMiss[distance_sort[index][2]]) < k:
+                    nearMiss[distance_sort[index][2]].append(features[distance_sort[index][1]]);
+                else:
+                    termination[distance_sort[index][2]] = 1;
+
+            if list(map(int,list(termination))).count(0) == 0:
+                break;
+
+		# 更新特征权重
+        nearHit_term = np.zeros(n_features);
+        for x in nearHit:
+            nearHit += np.abs(np.power(self_features - x,2));
+        nearMiss_term = np.zeros((len(list(set(labels))),n_features));
+        for index,label in enumerate(nearMiss.keys()):
+            for x in nearMiss[label]:
+                nearMiss_term[index] += np.abs(np.power(self_features - x,2));
+            #平均每个异类的权重    
+            #weight += nearMiss_term[index]/(k*len(nearMiss.keys()));
+            weight += nearMiss_term[index]*n_classc[label]/(k*n_miss);            
+        weight -= nearHit_term/k;
+    return weight/(iter_ratio*n_samples);
+
+#用datasets的make_blobs构造数据
+'''
+def test():
+    (features, labels) = make_blobs(n_samples = 500, n_features = 10, centers = 4);
+    features = normalize(X = features, norm = 'l2', axis = 0);
+    for x in range(5):
+        weight = fit(features=features, labels=labels, iter_ratio=1, k=5, norm='2');
+        #plt.plot(-np.sort(-weight,axis=0));
+        bias = 0.2*x;
+        index=2*np.arange(features.shape[1]);        
+        plt.bar(index+bias,weight,width=0.2,alpha=1);
+        plt.hlines(0.003,index.min(),index.max()+bias,colors='b',linestyle='dashed');
+        #plt.xticks(index+0.5,features[0]);                               
+    return weight; 
+'''
+#用datasets的digits数据
+def test2():
+    digits=datasets.load_digits();
+    labels=digits.target;
+    old_features=digits.images;
+    #把特征变成一维矩阵，8*8 -> 64
+    features=np.zeros((len(old_features),64));
+    for i in range(len(features)):
+        features[i]=old_features[i].ravel();
+    #特征归一化
+    features=normalize(X=features,norm='l1',axis=0)
+    weight = fit(features=features, labels=labels, iter_ratio=1, k=5, norm='2');
+    index=np.arange(features.shape[1]);        
+    plt.bar(index,weight,alpha=1);
+    return weight;
+if __name__ == '__main__':
+    w=test2();
