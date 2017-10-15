@@ -25,3 +25,4 @@ result = Fab(int(input('请输入月数：')))
 if result != -1:
     print('总共有%d对小兔子诞生！'%result)
 
+#lxl到此一游
